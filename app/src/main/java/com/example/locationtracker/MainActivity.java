@@ -29,7 +29,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int ID_FINE_LOCATION_REQUEST = 7;
 
     /* Time in seconds to ask for the current location */
-    private static final int DEFAULT_UPDATE_INTERVAL = 30;
+    private static final int DEFAULT_UPDATE_INTERVAL = 10;
     private static final int FAST_UPDATE_INTERVAL = 5;
 
     /* UI widgets */
@@ -52,25 +52,24 @@ public class MainActivity extends AppCompatActivity {
         msgText = findViewById(R.id.msg_text);
         trackingStatus = findViewById(R.id.tracking_status);
 
+        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
+
         /* Setting up the gps configurations */
         locationRequest = new LocationRequest();
         locationRequest.setInterval(DEFAULT_UPDATE_INTERVAL * 1000);
         locationRequest.setFastestInterval(FAST_UPDATE_INTERVAL * 1000); // Consumes more power
         locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
 
-        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
-
         locationCallback = new LocationCallback() {
             @Override
             public void onLocationResult(@NonNull LocationResult locationResult) {
                 super.onLocationResult(locationResult);
 
-                Toast
-                        .makeText(
-                                getApplicationContext(),
-                                "CCLatitude: " + locationResult.getLastLocation().getLatitude() + "" +
-                                        "\nCCLongitude: " + locationResult.getLastLocation().getLongitude(),
-                                Toast.LENGTH_LONG
+                Toast.makeText(
+                            getApplicationContext(),
+                            "Latitude: " + locationResult.getLastLocation().getLatitude() +
+                               "\nLongitude: " + locationResult.getLastLocation().getLongitude(),
+                            Toast.LENGTH_SHORT
                         )
                         .show();
 
@@ -81,7 +80,7 @@ public class MainActivity extends AppCompatActivity {
         trackingStatus.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                if (isChecked) {
+                if (isChecked && checkPermissions()) {
 
                     startTrackLocation();
 
@@ -99,15 +98,12 @@ public class MainActivity extends AppCompatActivity {
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, null);
-            trackLocation();
         }
     }
 
     private void stopTrackLocation() {
         msgText.setText("Click again to start tracking !");
-
         fusedLocationProviderClient.removeLocationUpdates(locationCallback);
-
     }
 
     @Override
@@ -117,7 +113,7 @@ public class MainActivity extends AppCompatActivity {
         switch (requestCode) {
             case ID_FINE_LOCATION_REQUEST :
                 if(grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    trackLocation();
+                    startTrackLocation();
                 }
                 else {
                     Toast
@@ -134,35 +130,20 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void trackLocation() {
+    private boolean checkPermissions() {
 
-        /* Check android permissions */
-        String locationPermission = Manifest.permission.ACCESS_FINE_LOCATION;
-        boolean hasLocationPermission = ActivityCompat
-                .checkSelfPermission(this, locationPermission) == PackageManager.PERMISSION_GRANTED;
+        boolean hasLocationPermission = ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED;
 
-        if(hasLocationPermission) {
-            fusedLocationProviderClient.getLastLocation().addOnSuccessListener(this, new OnSuccessListener<Location>() {
-                @Override
-                public void onSuccess(Location location) {
-                    Toast
-                            .makeText(
-                                    getApplicationContext(),
-                                    "TTLatitude: " + location.getLatitude() + "\nTTLongitude: " + location.getLongitude(),
-                                    Toast.LENGTH_LONG
-                            )
-                            .show();
-                }
-            });
+        /* Request permissions */
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            requestPermissions(
+                    new String[] {Manifest.permission.ACCESS_FINE_LOCATION}, // permissions
+                    ID_FINE_LOCATION_REQUEST // request code to identify this request later
+            );
         }
-        else {
-            /* Request permissions */
-            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                requestPermissions(
-                        new String[] {Manifest.permission.ACCESS_FINE_LOCATION}, // permissions
-                        ID_FINE_LOCATION_REQUEST // request code to identify this request later
-                );
-            }
-        }
+        return hasLocationPermission;
     }
 }
